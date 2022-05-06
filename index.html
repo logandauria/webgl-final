@@ -1,0 +1,148 @@
+<html>
+<head>
+    <title>CSCI-510: Final Project</title>
+
+
+    <!-- Matrix library and code for standard transformations -->
+    <script type="text/javascript" src="gl-matrix-min.js"></script>
+
+    <!-- include the main final functions -->
+    <script type="text/javascript" src="./finalMain.js"></script>
+
+    <!-- shape functions -->
+    <script type="text/javascript" src="./cgIShape.js"></script>
+    <script type="text/javascript" src="./myShapes-fix.js"></script>
+
+    <!-- keyboard functions -->
+    <script type="text/javascript" src="./event.js"></script>
+
+    <!-- texture images -->
+    <img id="innersphere" src="innersphere.jpg" style="display: none;"> </img>
+    <img id="bgimage" src="bgimage.jpg" style="display: none;"> </img>
+    <img id="hand" src="hand.jpg" style="display: none;"> </img>
+
+   
+
+    <!-- vertex Shader! based off prev assignments -->
+    <script id="sphereMap-V" type="x-shader/x-vertex">
+        #version 300 es
+        precision mediump float;
+        // Vertex shader for phong illumination model
+        // Per vertex shading
+
+        // Vertex Attributes
+        in vec3 aVertexPosition; // in model coords
+        in vec3 aNormal;
+        in vec2 aUV;    // u-v coordinates
+
+
+        // outputs
+        out vec2 theUV;  // pass uv's onto the fragment shader
+        out vec3 N;
+        out vec3 L;
+        out vec3 V;
+
+        uniform vec3 lightPosition;
+
+        // for object rotation
+        uniform mat4 modelT;
+        uniform mat4 viewT;
+        uniform mat4 projT;
+
+        void main()
+        {
+            mat4 modelView = viewT * modelT;
+            mat4 normalmatrix = transpose(inverse (modelView));
+
+            vec3 vcam = (modelView * vec4(aVertexPosition, 1.0)).xyz;
+            vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+            vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+            ncam = faceforward (ncam, vcam, ncam);
+
+            // vectors to pass on to Fragment Shader
+            N = normalize (ncam);
+            L = normalize (lcam - vcam);
+            V = -normalize (vcam);
+
+            // pass uvs to fragment shader
+            theUV = aUV;
+
+            // transform vertex to clip space
+            gl_Position = projT * viewT * modelT *  vec4 (aVertexPosition, 1.0);
+        }
+
+    </script>
+
+    <!-- fragment Shader! based off prev assignments -->
+    <script id="sphereMap-F" type="x-shader/x-fragment">
+        #version 300 es
+
+        // Fragment shader for phong illumination model
+        // Per vertex shading
+
+        precision lowp float;
+
+        // uvs passed in from vertex shader
+        in vec2 theUV;
+        in vec3 N;
+        in vec3 L;
+        in vec3 V;
+
+        // whether or not obj is textured
+        uniform bool isTextured;
+        // texture to use
+        uniform sampler2D theTexture;
+        uniform vec3 color;
+        vec3 baseColor;
+
+
+        // Phong Parameters //
+        uniform vec3 ambientLight;
+        uniform vec3 lightColor;
+
+        uniform float ka;
+        uniform float kd;
+        uniform float ks;
+        uniform float ke;
+
+        // Color that is the result of this shader
+        out vec4 fragColor;
+
+        void main(void) {
+            if(isTextured)
+            {
+                baseColor = texture(theTexture, theUV).rgb;
+            }
+            else
+            {
+                baseColor = color;
+            }
+            vec3 specHighlightColor = clamp(baseColor,vec3(0.0,0.0,0.0),vec3(1.0,1.0,1.0));
+            // individual components
+            vec3 R = normalize (reflect (-L, N));
+
+            vec3 ambient = ka * ambientLight * baseColor;
+            vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+            vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+
+            fragColor = vec4 (ambient + diffuse + spec, 1.0);
+        }
+    </script>
+
+    <script type="text/javascript">window.onload = init;</script>
+</head>
+
+<body>
+  <h1>CSCI-510: Final Project</h1>
+  <table>
+      <tr>
+          <td><canvas id="webgl-canvas" width="1600" height="900">
+            Your browser does not support the HTML5 canvas element.
+          </canvas></td>
+          
+      </tr>
+  </table>
+  
+</body>
+</html>
+
